@@ -180,6 +180,30 @@ namespace Contoso_Bank_Bot
                 bool LUISMessage = true;
                 var userMessage = activity.Text;
 
+                if (userMessage.ToLower().Equals("about"))
+                {
+                    Activity about = activity.CreateReply($"About Contoso Bank");
+                    about.Recipient = activity.From;
+                    about.Type = "message";
+                    about.Attachments = new List<Attachment>();
+
+                    List<CardImage> cardImages = new List<CardImage>();
+                    
+                    cardImages.Add(new CardImage(url: @"..\Resources\Logomakr_3dFXZy.png"));
+
+                    List <CardAction> cardButtons = new List<CardAction>();
+                   
+                    ThumbnailCard plCard = new ThumbnailCard()
+                    {
+                        Title = "Contoso Bank",
+                        Subtitle = "Bringing better customer experience",
+                        Images = cardImages,                        
+                    };
+
+                    Attachment plAttachment = plCard.ToAttachment();
+                    about.Attachments.Add(plAttachment);
+                    await connector.Conversations.SendToConversationAsync(about);
+                }
                 if (userMessage.Length > 9)
                 {
                     if (userMessage.ToLower().Substring(0, 8).Equals("set user"))
@@ -235,6 +259,9 @@ namespace Contoso_Bank_Bot
                                 break;
                             case "Hello":
                                 outputString = await Greeting(userData, stateClient, activity);
+                                break;
+                            case "Goodbye":
+                                outputString = "Goodbye!";
                                 break;
                             case "GetRates":
                                 outputString = await GetConversion(client, BkLUIS);
