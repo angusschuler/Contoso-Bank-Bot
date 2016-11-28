@@ -91,7 +91,6 @@ namespace Contoso_Bank_Bot
         private string GetBalance(BotData userData, BankingLUIS.RootObject BkLUIS)
         {
             string Account = BkLUIS.entities[0].entity.ToLower();
-            string acc = null;
             string outputString;
             User user = userData.GetProperty<User>("User");
             if (user != null)
@@ -102,22 +101,70 @@ namespace Contoso_Bank_Bot
                     case "checking":
                     case "cheque":
                         balance = user.Cheque;
-                        acc = "Checking";
                         break;
                     case "savings":
                         balance = user.Savings;
-                        acc = "Savings";
                         break;
                     default:                        
                         return "Invalid account type";
                 }
-                outputString = "You have " + balance + " " + userData.GetProperty<User>("User").Currency + " in your " + acc + " account";
+                outputString = "You have " + balance + " " + userData.GetProperty<User>("User").Currency + " in your " + Account + " account";
             }
             else
             {
                 outputString = "You must log in to access accounts";
             }
             return  outputString;
+        }
+
+        private async Task<string> Transfer(BotData userData, BankingLUIS.RootObject BkLUIS, StateClient stateClient, Activity activity)
+        {
+            double Number = Convert.ToDouble(BkLUIS.entities[0].entity);
+            string Account1 = BkLUIS.entities[1].entity.ToLower();
+            string Account2 = BkLUIS.entities[2].entity.ToLower();
+            string outputString;
+
+            User user = userData.GetProperty<User>("User");
+            
+            if (user != null)
+            {
+                double cheque = user.Cheque;
+                double savings = user.Savings;
+
+                switch (Account1)
+                {
+                    case "cheque":
+                    case "checking":
+                        cheque -= Number;
+                        savings += Number;
+                        break;
+                    case "savings":
+                        cheque += Number;
+                        savings -= Number;
+                        break;
+                    default:
+                        return "Invalid account type";                        
+                }
+                User temp = new User()
+                {
+                    ID = user.ID,
+                    Name = user.Name,
+                    Cheque = cheque,
+                    Savings = savings,
+                    Date = user.Date,
+                    Currency = user.Currency
+                  
+                };
+                userData.SetProperty<User>("User", temp);
+                await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
+                await AzureManager.AzureManagerInstance.UpdateUser(temp);
+                outputString = Number + " has been transfered from your " + Account1 + " account to your " + Account2 + " account";
+            }
+            else
+            {
+                outputString = "You must log in to access accounts";
+            }
+            return outputString;       
         }
 
         public async Task<HttpResponseMessage> Post([FromBody]Activity activity)
@@ -181,7 +228,7 @@ namespace Contoso_Bank_Bot
                         switch (BkLUIS.intents[0].intent)
                         {
                             case "Transfer":
-                                outputString = "Not Implemented";
+                                outputString = await Transfer(userData, BkLUIS, stateClient, activity);
                                 break;
                             case "GetBalance":
                                 outputString = GetBalance(userData, BkLUIS);
