@@ -241,6 +241,25 @@ namespace Contoso_Bank_Bot
                         }
                         LUISMessage = false;
                     }
+                }
+                if (userMessage.ToLower().Equals("help"))
+                {
+                    outputString = "-- Heres what you can do --\n\n";
+                    outputString += "To log in:\n\n";
+                    outputString += "Type 'set user <YOUR_ID_HERE>'\n\n";
+                    outputString += "To log out:\n\n";
+                    outputString += "Type 'log out'\n\n";
+                    outputString += "To get currency conversion rates:\n\n";
+                    outputString += "Type something like '30 USD to NZD'\n\n";
+                    outputString += "To get an account balance:\n\n";
+                    outputString += "Type 'balance savings' or 'what's in my checking'\n\n";
+                    outputString += "To transfer money between accounts:\n\n";
+                    outputString += "Type something like 'transfer 40 from savings to checking'\n\n";
+                    outputString += "To create a user:\n\n";
+                    outputString += "Type 'create user <8_DIGIT_ID>, <NAME>, s:<SAVINGS_AMOUNT>, c:<CHECKING_AMOUNT>, <CURRENCY>'\n\n";
+                    outputString += "To get more information about Contoso Bank:\n\n";
+                    outputString += "Type 'about'\n\n";
+                    LUISMessage = false;
                 }                
                 if (userMessage.ToLower().Equals("user"))
                 {
@@ -255,7 +274,7 @@ namespace Contoso_Bank_Bot
                     }
                     LUISMessage = false;
                 }
-                if (userMessage.ToLower().Contains("clear"))
+                if (userMessage.ToLower().Equals("log out"))
                 {
                     outputString = "User Data cleared";
                     await stateClient.BotState.DeleteStateForUserAsync(activity.ChannelId, activity.From.Id);
