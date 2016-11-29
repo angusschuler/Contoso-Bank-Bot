@@ -276,7 +276,7 @@ namespace Contoso_Bank_Bot
                 }
                 if (userMessage.ToLower().Equals("log out"))
                 {
-                    outputString = "User Data cleared";
+                    outputString = "Looged Out. User Data Cleared";
                     await stateClient.BotState.DeleteStateForUserAsync(activity.ChannelId, activity.From.Id);
                     LUISMessage = false;
                 }
