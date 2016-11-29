@@ -293,7 +293,40 @@ namespace Contoso_Bank_Bot
                     about.Attachments.Add(plAttachment);
                     await connector.Conversations.SendToConversationAsync(about);
 
-                }               
+                }
+                else if (userMessage.ToLower().Equals("ollie robb"))
+                {
+                    Activity about = activity.CreateReply($"Look at this man");
+                    about.Recipient = activity.From;
+                    about.Type = "message";
+                    about.Attachments = new List<Attachment>();
+
+                    List<CardImage> cardImages = new List<CardImage>();
+
+                    cardImages.Add(new CardImage(url: "https://scontent-syd2-1.xx.fbcdn.net/v/t1.0-9/11986465_10207896272872723_8728011847257622060_n.jpg?oh=9b44fd3afd1259b8fbf65b9f18d25d79&oe=58F7FAAC"));
+
+                    List<CardAction> cardButtons = new List<CardAction>();
+                    CardAction plButton = new CardAction()
+                    {
+                        Value = "https://www.facebook.com/osrobb",
+                        Type = "openUrl",
+                        Title = "Check this bad boy out"
+                    };
+                    cardButtons.Add(plButton);
+
+                    HeroCard plCard = new HeroCard()
+                    {
+                        Title = "Ollie Robb",
+                        Subtitle = "So Aesthetic",
+                        Images = cardImages,
+                        Buttons = cardButtons
+                    };
+
+                    Attachment plAttachment = plCard.ToAttachment();
+                    about.Attachments.Add(plAttachment);
+                    await connector.Conversations.SendToConversationAsync(about);
+
+                }
                 else if (LUISMessage)
                 {
                     HttpClient client = new HttpClient();
