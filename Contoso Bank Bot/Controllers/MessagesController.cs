@@ -9,6 +9,7 @@ using Microsoft.Bot.Connector;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using Contoso_Bank_Bot.Models;
+using System.Globalization;
 
 namespace Contoso_Bank_Bot
 {
@@ -167,6 +168,48 @@ namespace Contoso_Bank_Bot
             return outputString;       
         }
 
+        private async Task<string> CreateUser(BankingLUIS.RootObject BkLUIS)
+        {
+            
+            TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;            
+            User user = new User()
+            {
+                ID = BkLUIS.entities[2].entity,
+                Name = textInfo.ToTitleCase(BkLUIS.entities[1].entity),
+                Savings = Convert.ToDouble(BkLUIS.entities[0].entity),
+                Cheque = Convert.ToDouble(BkLUIS.entities[6].entity),
+                Currency = BkLUIS.entities[7].entity.ToUpper()
+            };
+            try
+            {
+                await AzureManager.AzureManagerInstance.AddUser(user);
+            }
+            catch
+            {
+                return "User already exists";
+            }
+            
+            string outputString = "User " + user.Name + " added with ID " + user.ID;
+            return outputString;
+            }
+
+        private async Task<string> DeleteUser(BankingLUIS.RootObject BkLUIS, StateClient stateClient, Activity activity)
+        {
+            string outputString = "User not found";
+            List<User> users = await AzureManager.AzureManagerInstance.GetUser();
+            foreach (User t in users)
+            {
+                if (t.ID.Equals(BkLUIS.entities[0].entity))
+                {
+                    User user = t;
+                    await AzureManager.AzureManagerInstance.DeleteUser(t);
+                    outputString = user.Name + ", with ID "+ BkLUIS.entities[0].entity + ", has been deleted";
+                    await stateClient.BotState.DeleteStateForUserAsync(activity.ChannelId, activity.From.Id);
+                }
+            }
+            return outputString;
+        }
+
         public async Task<HttpResponseMessage> Post([FromBody]Activity activity)
         {
             if (activity.Type == ActivityTypes.Message)
@@ -180,30 +223,6 @@ namespace Contoso_Bank_Bot
                 bool LUISMessage = true;
                 var userMessage = activity.Text;
 
-                if (userMessage.ToLower().Equals("about"))
-                {
-                    Activity about = activity.CreateReply($"About Contoso Bank");
-                    about.Recipient = activity.From;
-                    about.Type = "message";
-                    about.Attachments = new List<Attachment>();
-
-                    List<CardImage> cardImages = new List<CardImage>();
-                    
-                    cardImages.Add(new CardImage(url: @"..\Resources\Logomakr_3dFXZy.png"));
-
-                    List <CardAction> cardButtons = new List<CardAction>();
-                   
-                    ThumbnailCard plCard = new ThumbnailCard()
-                    {
-                        Title = "Contoso Bank",
-                        Subtitle = "Bringing better customer experience",
-                        Images = cardImages,                        
-                    };
-
-                    Attachment plAttachment = plCard.ToAttachment();
-                    about.Attachments.Add(plAttachment);
-                    await connector.Conversations.SendToConversationAsync(about);
-                }
                 if (userMessage.Length > 9)
                 {
                     if (userMessage.ToLower().Substring(0, 8).Equals("set user"))
@@ -218,11 +237,11 @@ namespace Contoso_Bank_Bot
                                 userData.SetProperty<User>("User", t);
                                 outputString = userData.GetProperty<User>("User").Name + " is now logged in";
                                 await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
-                            }                                                    
+                            }
                         }
                         LUISMessage = false;
-                    }                   
-                }
+                    }
+                }                
                 if (userMessage.ToLower().Equals("user"))
                 {
                     User user = userData.GetProperty<User>("User");
@@ -242,7 +261,40 @@ namespace Contoso_Bank_Bot
                     await stateClient.BotState.DeleteStateForUserAsync(activity.ChannelId, activity.From.Id);
                     LUISMessage = false;
                 }
-                if (LUISMessage)
+                if (userMessage.ToLower().Equals("about"))
+                {
+                    Activity about = activity.CreateReply($"About Contoso Bank");
+                    about.Recipient = activity.From;
+                    about.Type = "message";
+                    about.Attachments = new List<Attachment>();
+
+                    List<CardImage> cardImages = new List<CardImage>();
+
+                    cardImages.Add(new CardImage(url: "https://s17.postimg.org/wvo2cfnvz/Logomakr_3d_FXZy.png"));
+
+                    List<CardAction> cardButtons = new List<CardAction>();                   
+                    CardAction plButton = new CardAction()
+                    {
+                        Value = "https://www.google.co.nz/search?q=contoso%20bank",
+                        Type = "openUrl",
+                        Title = "Search for Contoso Bank"
+                    };
+                    cardButtons.Add(plButton);
+
+                    ThumbnailCard plCard = new ThumbnailCard()
+                    {
+                        Title = "Contoso Bank",
+                        Subtitle = "Bringing better customer experience\n\n Phone No: 03 555 5555",
+                        Images = cardImages,
+                        Buttons = cardButtons
+                    };
+
+                    Attachment plAttachment = plCard.ToAttachment();
+                    about.Attachments.Add(plAttachment);
+                    await connector.Conversations.SendToConversationAsync(about);
+
+                }               
+                else if (LUISMessage)
                 {
                     HttpClient client = new HttpClient();
 
@@ -251,6 +303,12 @@ namespace Contoso_Bank_Bot
                     {
                         switch (BkLUIS.intents[0].intent)
                         {
+                            case "NewUser":
+                                outputString = await CreateUser(BkLUIS);
+                                break;
+                            case "DeleteUser":
+                                outputString = await DeleteUser(BkLUIS, stateClient, activity);
+                                break;
                             case "Transfer":
                                 outputString = await Transfer(userData, BkLUIS, stateClient, activity);
                                 break;
@@ -277,7 +335,7 @@ namespace Contoso_Bank_Bot
                     }
                     Activity infoReply = activity.CreateReply(outputString);
                     await connector.Conversations.ReplyToActivityAsync(infoReply);
-                } 
+                }              
                 else
                 {
                     Activity infoReply = activity.CreateReply(outputString);
@@ -307,6 +365,16 @@ namespace Contoso_Bank_Bot
                 // Handle conversation state changes, like members being added and removed
                 // Use Activity.MembersAdded and Activity.MembersRemoved and Activity.Action for info
                 // Not available in all channels
+                string replyMessage = string.Empty;
+                replyMessage += $"Hello, and welcome to the Contoso Bank Bot\n\n";
+                replyMessage += $"This bot can help you fufil tasks without going into your closest bank.  \n";
+                replyMessage += $"Possible tasks include:  \n";
+                replyMessage += $"* Transfering funds between accounts\n\n";
+                replyMessage += $"* Getting a conversion rate for 2 currencies\n\n";
+                replyMessage += $"* Getting an accounts balance\n\n";
+                replyMessage += $"For more assistance please type 'help'\n\n.";
+                replyMessage += $"Thank you for choosing Contoso Bank";
+                return message.CreateReply(replyMessage);
             }
             else if (message.Type == ActivityTypes.ContactRelationUpdate)
             {
